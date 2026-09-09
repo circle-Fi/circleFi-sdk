@@ -1,107 +1,96 @@
 # CircleFi SDK
 
-Embeddable TypeScript/JavaScript SDK for CircleFi rotating savings circles. Designed for integration with wallets, anchors, and fintech apps operating in Stellar-heavy corridors (Africa, LatAm, SE Asia).
+Read and drive [CircleFi](https://github.com/circle-Fi/circleFi-contract) rotating
+savings circles on Stellar, from a browser or from Node.
 
-## Installation
+Reads are simulated against a Soroban RPC node, so listing circles and inspecting
+one needs no wallet, no account and no fee. Writes are ordinary transactions signed
+by whatever signer you hand in - the SDK never sees a key and has no opinion about
+which wallet you use.
 
-```bash
-npm install @circlefi/sdk
+## Install
+
+```sh
+npm install github:circle-Fi/circleFi-sdk
 ```
 
-## Quick Start
+## Read without a wallet
 
-```typescript
-import { CircleFiSDK } from '@circlefi/sdk';
+```js
+import { CircleFi, amount, statusOf } from '@circlefi/sdk';
 
-const sdk = new CircleFiSDK({
-  network: 'testnet',
-  rpcUrl: 'https://soroban-testnet.stellar.org',
-});
+const cf = new CircleFi();               // testnet + the deployed factory
 
-// Create a circle
-const circle = await sdk.createCircle({
-  name: 'My Savings Circle',
-  contribution_amount: 100,
-  cycle_duration_days: 30,
-  payout_order: 'fixed',
-  collateral_percentage: 20,
-  dispute_window_hours: 24,
-});
+for (const c of await cf.list(0, 10)) {
+  const { decimals, symbol } = await cf.tokenMeta(c.token);
+  console.log(c.address, amount(c.contribution, decimals, symbol), 'per round');
+}
 
-// Join a circle
-await sdk.joinCircle(circle.id);
-
-// Make a contribution
-await sdk.contribute(circle.id, 100);
-
-// Get circle members
-const members = await sdk.getMembers(circle.id);
+const snap = await cf.snapshot('CBV6IG53JF7WIINUBJS27YUCPCWUJM5EUSOWQKH7FKQLENKUR6Y2MA6Y');
+console.log(statusOf(snap.state.status), snap.members.length, 'of', snap.config.capacity);
 ```
 
-## API Reference
+## Write with a signer
 
-### `createCircle(params)`
-Create a new savings circle.
+A signer is anything with an `address` and a `signTransaction`. Freighter's API
+already matches, so in a browser this is the whole integration:
 
-**Parameters:**
-- `name: string` - Circle name
-- `contribution_amount: number` - Required contribution per member
-- `cycle_duration_days: number` - Duration of each round
-- `payout_order: 'fixed' | 'bid'` - Fixed or bid-based payout
-- `collateral_percentage: number` - Required collateral (0-100)
-- `dispute_window_hours: number` - Time to dispute payouts
+```js
+import { requestAccess, signTransaction } from '@stellar/freighter-api';
+import { CircleFi, TESTNET_NATIVE, toUnits } from '@circlefi/sdk';
 
-### `joinCircle(circleId)`
-Join an existing circle.
+const cf = new CircleFi();
+const { address } = await requestAccess();
+const signer = { address, signTransaction };
 
-### `getCircles()`
-Get all circles for the current user.
-
-### `contribute(circleId, amount)`
-Make a contribution to a circle.
-
-### `placeBid(circleId, bidAmount)`
-Place a bid for payout priority (bid-based circles only).
-
-### `getMembers(circleId)`
-Get all members in a circle.
-
-### `getMember(circleId, memberAddress)`
-Get details for a specific member.
-
-### `triggerDefault(circleId, memberAddress)`
-Mark a member as defaulted (slashing logic applied).
-
-### `disputePayout(circleId, roundId)`
-Dispute a payout decision.
-
-### `endRound(circleId)`
-End the current round and move to the next.
-
-## Wallet Integration
-
-The SDK works with any Stellar wallet that supports Soroban contract invocations:
-
-```typescript
-// Example with Freighter wallet
-const publicKey = await window.freighter.getPublicKey();
-const sdk = new CircleFiSDK({
-  network: 'testnet',
-  rpcUrl: 'https://soroban-testnet.stellar.org',
+const id = await cf.create(signer, {
+  token: TESTNET_NATIVE,
+  contribution: toUnits('5', 7),   // 5 XLM
+  roundSeconds: 604800,            // a week
+  capacity: 6,
 });
+
+const circle = cf.circle(id);
+await circle.join(signer);         // locks one round as a deposit
+await circle.contribute(signer);
+await circle.settle(signer);       // anyone may settle; it is not privileged
 ```
 
-## Features
+In Node, five lines around a `Keypair` do the same job.
 
-- ✅ Circle creation and management
-- ✅ Member tracking with trust scores
-- ✅ Contribution enforcement
-- ✅ Collateral locking and slashing
-- ✅ Fixed and bid-based payout support
-- ✅ Dispute resolution window
-- ✅ Full TypeScript support
-- ✅ Wallet agnostic
+## What a circle is
 
-## License
+A fixed group agrees on an amount and a period. Every period each member pays in,
+and one member takes the whole pot; the order is join order, and everyone gets
+exactly one turn. Joining locks one round's worth as a security deposit, and if a
+member misses a round that deposit covers it - so whoever's turn it is still gets
+paid in full. When a deposit is exhausted the pot comes up short, and the contract
+records the shortfall rather than hiding it.
 
-MIT
+## Errors
+
+`explain(e)` maps contract error codes and the usual network failures to a sentence
+you can put in front of a person:
+
+```js
+try { await circle.contribute(signer); }
+catch (e) { alert(explain(e)); }   // "You have already contributed to this round"
+```
+
+## Network
+
+`new CircleFi()` is testnet. Point it anywhere:
+
+```js
+new CircleFi({ rpcUrl, networkPassphrase, factoryId });
+```
+
+## Tests
+
+`npm run test:live` reads the deployed testnet factory and asserts the shape of what
+comes back. It writes nothing, so it is safe to run against a live network - CI runs
+it on every push and once a day.
+
+## Licence
+
+Apache-2.0

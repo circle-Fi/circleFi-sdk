@@ -1,31 +1,22 @@
 {
   "name": "@circlefi/sdk",
   "version": "0.1.0",
-  "description": "Embeddable CircleFi module for wallets, anchors, and fintech apps",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "description": "Read and drive CircleFi rotating savings circles on Stellar",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./src/index.js" }
+  },
+  "files": ["src", "index.d.ts", "README.md"],
+  "repository": { "type": "git", "url": "git+https://github.com/circle-Fi/circleFi-sdk.git" },
+  "keywords": ["stellar", "soroban", "rosca", "savings", "esusu", "tanda"],
   "scripts": {
-    "build": "tsc",
-    "test": "jest",
-    "dev": "tsc --watch"
+    "test": "node --test test/",
+    "test:live": "node test/live.mjs"
   },
   "dependencies": {
-    "stellar-sdk": "^11.0.0",
-    "axios": "^1.6.0"
-  },
-  "devDependencies": {
-    "typescript": "^5.0.0",
-    "jest": "^29.0.0",
-    "ts-jest": "^29.0.0",
-    "@types/jest": "^29.0.0"
-  },
-  "keywords": [
-    "stellar",
-    "soroban",
-    "rosca",
-    "savings",
-    "circles",
-    "circlefi"
-  ],
-  "license": "MIT"
+    "@stellar/stellar-sdk": "^17.0.1"
+  }
 }
