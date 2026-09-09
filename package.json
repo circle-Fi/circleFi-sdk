@@ -14,7 +14,8 @@
   "keywords": ["stellar", "soroban", "rosca", "savings", "esusu", "tanda"],
   "scripts": {
     "test": "node --test test/",
-    "test:live": "node test/live.mjs"
+    "test:live": "node test/live.mjs",
+    "test:e2e": "node test/e2e.mjs"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^17.0.1"

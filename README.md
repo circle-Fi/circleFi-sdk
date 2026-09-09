@@ -91,6 +91,12 @@ new CircleFi({ rpcUrl, networkPassphrase, factoryId });
 comes back. It writes nothing, so it is safe to run against a live network - CI runs
 it on every push and once a day.
 
+`npm run test:e2e` goes further: it generates throwaway keypairs, funds them from
+friendbot, and drives a whole circle on live testnet - create, three joins, three
+rounds of contribute and settle, three withdrawals - asserting after every step on
+the contract's own balance, which is exact where member balances move by fees too.
+It ends by checking the circle holds nothing at all. Takes about 40 seconds.
+
 ## Licence
 
 Apache-2.0
