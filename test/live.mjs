@@ -36,4 +36,12 @@ assert.ok(BigInt(snap.config.contribution) > 0n);
 const bound = cf.circle(first.address);
 assert.deepEqual(await bound.config(), snap.config);
 
+// Test lazy async iterator over all circles
+const iterated = [];
+for await (const circle of cf.circles({ pageSize: 1 })) {
+  iterated.push(circle);
+}
+assert.equal(iterated.length, count, 'circles iterator should yield all circles');
+assert.equal(iterated[0].address, first.address, 'first iterated circle should match first list entry');
+
 console.log('\nlive read test passed');
