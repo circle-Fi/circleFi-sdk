@@ -21,6 +21,13 @@ import { CircleFi, amount, statusOf } from '@circlefi/sdk';
 
 const cf = new CircleFi();               // testnet + the deployed factory
 
+// Iterate over all circles without manual pagination loops
+for await (const c of cf.circles({ pageSize: 50 })) {
+  const { decimals, symbol } = await cf.tokenMeta(c.token);
+  console.log(c.address, amount(c.contribution, decimals, symbol), 'per round');
+}
+
+// Or fetch a single page with list(offset, limit)
 for (const c of await cf.list(0, 10)) {
   const { decimals, symbol } = await cf.tokenMeta(c.token);
   console.log(c.address, amount(c.contribution, decimals, symbol), 'per round');

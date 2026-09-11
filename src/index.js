@@ -134,6 +134,32 @@ export class CircleFi {
   /** How many circles the factory has opened. */
   count() { return this.read(this.factoryId, 'count'); }
 
+  /**
+   * Async iterator over all circles created by the factory.
+   * Lazily fetches pages of `pageSize` (default: 50) and stops when a page is short or empty.
+   *
+   * @param {{ pageSize?: number }} [opts]
+   * @returns {AsyncGenerator<import('./index.js').Listing, void, unknown>}
+   */
+  async *circles({ pageSize = 50 } = {}) {
+    let offset = 0;
+    const limit = Math.max(1, Number(pageSize) || 50);
+
+    while (true) {
+      const page = await this.list(offset, limit);
+      if (!Array.isArray(page) || page.length === 0) {
+        break;
+      }
+      for (const item of page) {
+        yield item;
+      }
+      if (page.length < limit) {
+        break;
+      }
+      offset += page.length;
+    }
+  }
+
   /** One page of circles, newest first. */
   list(offset = 0, limit = 20) {
     return this.read(this.factoryId, 'list', [u32(offset), u32(limit)]);

@@ -86,6 +86,7 @@ declare module '@circlefi/sdk' {
     invoke(contractId: string, method: string, args: unknown[], signer: Signer): Promise<Sent>;
 
     count(): Promise<bigint>;
+    circles(opts?: { pageSize?: number }): AsyncGenerator<Listing, void, unknown>;
     list(offset?: number, limit?: number): Promise<Listing[]>;
     create(signer: Signer, terms: Terms): Promise<string>;
 
