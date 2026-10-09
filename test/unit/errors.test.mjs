@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CIRCLE_ERRORS, CircleFiError, explain } from '../../src/index.js';
+import { CIRCLE_ERRORS, CircleFiError, contractErrorCode, explain } from '../../src/index.js';
 
 test('every contract error code has a sentence', () => {
   for (let code = 1; code <= 11; code++) {
@@ -35,4 +35,11 @@ test('explain() survives values that cannot be serialised', () => {
   const loop = { message: 'Error(Contract, #4)' };
   loop.self = loop;
   assert.equal(explain(loop), 'This circle is not running');
+});
+
+test('contractErrorCode() pulls out the number so callers can branch on it', () => {
+  assert.equal(contractErrorCode({ message: 'HostError: Error(Contract, #9)' }), 9);
+  assert.equal(contractErrorCode({ result: { error: 'Error(Contract, #11)' } }), 11);
+  assert.equal(contractErrorCode(new Error('timeout')), undefined);
+  assert.equal(contractErrorCode(new CircleFiError('x', 3)), 3);
 });

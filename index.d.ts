@@ -84,6 +84,9 @@ declare module '@circlefi/sdk' {
   /** Turn whatever the network threw into a sentence worth showing a person. */
   export function explain(e: unknown): string;
 
+  /** The contract's error number (see CIRCLE_ERRORS) inside a thrown value, if any. */
+  export function contractErrorCode(e: unknown): number | undefined;
+
   /** ScVal encoders for building raw calls with read() and invoke(). */
   export function addr(address: string): unknown;
   export function u32(n: number | string): unknown;

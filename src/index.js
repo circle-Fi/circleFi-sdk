@@ -45,12 +45,25 @@ export class CircleFiError extends Error {
   }
 }
 
+function describe(e) {
+  let json = '';
+  try { json = JSON.stringify(e); } catch { /* circular - the message is enough */ }
+  return `${e?.message || ''} ${json}`;
+}
+
+/** The contract's error number inside whatever the network threw, if any. */
+export function contractErrorCode(e) {
+  if (e instanceof CircleFiError) return e.code;
+  const m = /Error\(Contract,\s*#(\d+)\)/.exec(describe(e));
+  return m ? Number(m[1]) : undefined;
+}
+
 /** Turn whatever the network threw into something worth showing a person. */
 export function explain(e) {
   if (e instanceof CircleFiError) return e.message;
-  const blob = `${e?.message || ''} ${(() => { try { return JSON.stringify(e); } catch { return ''; } })()}`;
-  const m = /Error\(Contract,\s*#(\d+)\)/.exec(blob);
-  if (m && CIRCLE_ERRORS[+m[1]]) return CIRCLE_ERRORS[+m[1]];
+  const blob = describe(e);
+  const code = contractErrorCode(e);
+  if (code && CIRCLE_ERRORS[code]) return CIRCLE_ERRORS[code];
   if (/insufficient balance|balance is not sufficient/i.test(blob))
     return 'Not enough of that token in the wallet for this.';
   if (/trustline|not authorized/i.test(blob))
@@ -58,6 +71,11 @@ export function explain(e) {
   if (/account not found|NOT_FOUND/i.test(blob))
     return 'That account does not exist on this network yet.';
   return e?.message || String(e);
+}
+
+/** A CircleFiError carrying both the sentence and the contract's error code. */
+function failure(e) {
+  return new CircleFiError(explain(e), contractErrorCode(e));
 }
 
 export const addr = (a) => new Address(a).toScVal();
@@ -88,7 +106,7 @@ export class CircleFi {
       .setTimeout(30)
       .build();
     const sim = await this.server.simulateTransaction(tx);
-    if (rpc.Api.isSimulationError(sim)) throw new CircleFiError(explain({ message: sim.error }));
+    if (rpc.Api.isSimulationError(sim)) throw failure({ message: sim.error });
     const retval = sim.result?.retval;
     return retval ? scValToNative(retval) : undefined;
   }
@@ -120,12 +138,12 @@ export class CircleFi {
     const sent = await this.server.sendTransaction(
       TransactionBuilder.fromXDR(xdr, this.networkPassphrase),
     );
-    if (sent.status === 'ERROR') throw new CircleFiError(explain(sent.errorResult ?? sent));
+    if (sent.status === 'ERROR') throw failure(sent.errorResult ?? sent);
 
     const done = await this.server.pollTransaction(sent.hash, {
       attempts: 30, sleepStrategy: rpc.LinearSleepStrategy,
     });
-    if (done.status !== 'SUCCESS') throw new CircleFiError(explain(done.resultXdr ?? done.status));
+    if (done.status !== 'SUCCESS') throw failure(done.resultXdr ?? done.status);
     return { hash: sent.hash, value: done.returnValue ? scValToNative(done.returnValue) : undefined };
   }
 
