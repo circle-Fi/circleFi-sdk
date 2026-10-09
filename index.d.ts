@@ -88,6 +88,12 @@ declare module '@circlefi/sdk' {
   /** Turn whatever the network threw into a sentence worth showing a person. */
   export function explain(e: unknown, table?: Readonly<Record<number, string>>): string;
 
+  export const MIN_CAPACITY: 3;
+  export const MAX_CAPACITY: 24;
+
+  /** The factory's rules, checked locally. Empty array means acceptable. */
+  export function checkTerms(terms: Partial<Terms>): string[];
+
   /** The contract's error number (see CIRCLE_ERRORS) inside a thrown value, if any. */
   export function contractErrorCode(e: unknown): number | undefined;
 

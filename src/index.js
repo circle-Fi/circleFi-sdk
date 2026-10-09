@@ -7,7 +7,7 @@
  */
 import {
   Account, Address, BASE_FEE, Contract, Networks, TransactionBuilder,
-  nativeToScVal, rpc, scValToNative,
+  StrKey, nativeToScVal, rpc, scValToNative,
 } from '@stellar/stellar-sdk';
 
 /** An account that exists on no network - fine as a simulation source. */
@@ -89,6 +89,47 @@ export function explain(e, table = CIRCLE_ERRORS) {
 /** A CircleFiError carrying both the sentence and the contract's error code. */
 function failure(e, table) {
   return new CircleFiError(explain(e, table), contractErrorCode(e));
+}
+
+/** Circle sizes the contracts accept. */
+export const MIN_CAPACITY = 3;
+export const MAX_CAPACITY = 24;
+
+const I128_MAX = (1n << 127n) - 1n;
+const U64_MAX = (1n << 64n) - 1n;
+
+function asBigInt(v) {
+  try {
+    if (typeof v === 'number' && !Number.isInteger(v)) return null;
+    return BigInt(v);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check a circle's terms the way the factory will, so a form can show what
+ * is wrong before anyone is asked to sign. Returns a list of sentences;
+ * empty means the terms are acceptable.
+ */
+export function checkTerms({ token, contribution, roundSeconds, capacity } = {}) {
+  const problems = [];
+  const cap = Number(capacity);
+  if (!Number.isInteger(cap) || cap < MIN_CAPACITY || cap > MAX_CAPACITY) {
+    problems.push(`Circle size must be between ${MIN_CAPACITY} and ${MAX_CAPACITY}.`);
+  }
+  const c = asBigInt(contribution);
+  if (c === null || c <= 0n || c > I128_MAX) {
+    problems.push('Contribution must be a whole number of token units, more than zero.');
+  }
+  const r = asBigInt(roundSeconds);
+  if (r === null || r <= 0n || r > U64_MAX) {
+    problems.push('Round length must be a whole number of seconds, more than zero.');
+  }
+  if (typeof token !== 'string' || !StrKey.isValidContract(token)) {
+    problems.push('Token must be a token contract address (C...).');
+  }
+  return problems;
 }
 
 export const addr = (a) => new Address(a).toScVal();
@@ -205,6 +246,14 @@ export class CircleFi {
 
   /** Open a circle. Resolves to the new circle's contract address. */
   async create(signer, { token, contribution, roundSeconds, capacity }) {
+    const problems = checkTerms({ token, contribution, roundSeconds, capacity });
+    if (problems.length) {
+      // Use the factory's code for the same failure, so callers branch alike.
+      const code = problems.some((p) => p.startsWith('Circle size')) ? 2
+        : problems.some((p) => /^(Contribution|Round length)/.test(p)) ? 1
+          : undefined;
+      throw new CircleFiError(problems.join(' '), code);
+    }
     const r = await this.invoke(this.factoryId, 'create', [
       addr(signer.address), addr(token), i128(contribution), u64(roundSeconds), u32(capacity),
     ], signer);
