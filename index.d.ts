@@ -124,6 +124,8 @@ declare module '@circlefi/sdk' {
     member(id: string, who: string): Promise<MemberRecord | null>;
     hasContributed(id: string, round: number, who: string): Promise<boolean>;
     snapshot(id: string): Promise<Snapshot>;
+    /** Who takes the pot in a round (1-indexed), or null if that seat is empty. */
+    recipientOf(id: string, round: number): Promise<string | null>;
 
     join(id: string, signer: Signer): Promise<Sent>;
     contribute(id: string, signer: Signer): Promise<Sent>;
@@ -138,6 +140,7 @@ declare module '@circlefi/sdk' {
       member(who: string): Promise<MemberRecord | null>;
       hasContributed(round: number, who: string): Promise<boolean>;
       snapshot(): Promise<Snapshot>;
+      recipientOf(round: number): Promise<string | null>;
       join(signer: Signer): Promise<Sent>;
       contribute(signer: Signer): Promise<Sent>;
       topUp(signer: Signer): Promise<Sent>;
@@ -154,6 +157,13 @@ declare module '@circlefi/sdk' {
   export function duration(seconds: bigint | number): string;
   export function remaining(endsAt: bigint | number): string;
   export function short(address: string): string;
+  export interface Step {
+    action: 'join' | 'wait' | 'contribute' | 'top_up' | 'settle' | 'withdraw' | 'none';
+    reason: string;
+  }
+  /** What `who` should do next in a circle, from a snapshot alone. */
+  export function nextStep(snapshot: Snapshot, who?: string, now?: number): Step;
+
   export const STATUS: readonly ['forming', 'active', 'complete'];
   export function statusOf(raw: number | bigint): 'forming' | 'active' | 'complete';
 

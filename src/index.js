@@ -268,6 +268,10 @@ export class CircleFi {
   hasContributed(id, round, who) {
     return this.read(id, 'has_contributed', [u32(round), addr(who)]);
   }
+  /** Who takes the pot in a round (1-indexed), or null if that seat is empty. */
+  async recipientOf(id, round) {
+    return (await this.read(id, 'recipient_of', [u32(round)])) ?? null;
+  }
 
   join(id, signer) { return this.invoke(id, 'join', [addr(signer.address)], signer); }
   contribute(id, signer) { return this.invoke(id, 'contribute', [addr(signer.address)], signer); }
@@ -298,6 +302,7 @@ export class CircleFi {
       id,
       config: bind(this.config), state: bind(this.state), member: bind(this.member),
       hasContributed: bind(this.hasContributed), snapshot: bind(this.snapshot),
+      recipientOf: bind(this.recipientOf),
       join: bind(this.join), contribute: bind(this.contribute), topUp: bind(this.topUp),
       settle: bind(this.settle), withdraw: bind(this.withdraw),
     };
@@ -326,3 +331,4 @@ export class CircleFi {
 export default CircleFi;
 
 export { short, amount, toUnits, duration, remaining, STATUS, statusOf } from './format.js';
+export { nextStep } from './steps.js';
