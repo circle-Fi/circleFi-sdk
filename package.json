@@ -13,7 +13,7 @@
   "repository": { "type": "git", "url": "git+https://github.com/circle-Fi/circleFi-sdk.git" },
   "keywords": ["stellar", "soroban", "rosca", "savings", "esusu", "tanda"],
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test 'test/unit/*.test.mjs'",
     "test:live": "node test/live.mjs",
     "test:e2e": "node test/e2e.mjs"
   },
