@@ -8,6 +8,10 @@ declare module '@circlefi/sdk' {
   export const TESTNET: Readonly<Network>;
   export const TESTNET_NATIVE: string;
   export const CIRCLE_ERRORS: Readonly<Record<number, string>>;
+  /** The factory's own codes - #3 there means a page that is too large. */
+  export const FACTORY_ERRORS: Readonly<Record<number, string>>;
+  /** Most circles the factory returns from one list() call. */
+  export const MAX_PAGE: 50;
 
   /** Anything that can sign - Freighter's API satisfies this as-is. */
   export interface Signer {
@@ -82,7 +86,7 @@ declare module '@circlefi/sdk' {
   }
 
   /** Turn whatever the network threw into a sentence worth showing a person. */
-  export function explain(e: unknown): string;
+  export function explain(e: unknown, table?: Readonly<Record<number, string>>): string;
 
   /** The contract's error number (see CIRCLE_ERRORS) inside a thrown value, if any. */
   export function contractErrorCode(e: unknown): number | undefined;
@@ -103,7 +107,10 @@ declare module '@circlefi/sdk' {
     invoke(contractId: string, method: string, args: unknown[], signer: Signer): Promise<Sent>;
 
     count(): Promise<number>;
+    /** One page, newest first; limit is 1..MAX_PAGE. */
     list(offset?: number, limit?: number): Promise<Listing[]>;
+    /** Every circle, newest first, a page at a time. */
+    listAll(opts?: { max?: number }): Promise<Listing[]>;
     create(signer: Signer, terms: Terms): Promise<string>;
 
     config(id: string): Promise<Config>;

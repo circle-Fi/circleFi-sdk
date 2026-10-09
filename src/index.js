@@ -37,6 +37,16 @@ export const CIRCLE_ERRORS = Object.freeze({
   11: 'Nothing left to withdraw',
 });
 
+/** The factory has its own, smaller set of codes - #3 means something else there. */
+export const FACTORY_ERRORS = Object.freeze({
+  1: 'Contribution or round length was zero',
+  2: 'Circle size must be between 3 and 24',
+  3: 'Asked for more than 50 circles in one page',
+});
+
+/** Most circles the factory returns from one list() call. */
+export const MAX_PAGE = 50;
+
 export class CircleFiError extends Error {
   constructor(message, code) {
     super(message);
@@ -58,12 +68,15 @@ export function contractErrorCode(e) {
   return m ? Number(m[1]) : undefined;
 }
 
-/** Turn whatever the network threw into something worth showing a person. */
-export function explain(e) {
+/**
+ * Turn whatever the network threw into something worth showing a person.
+ * Pass FACTORY_ERRORS as `table` for failures from the factory contract.
+ */
+export function explain(e, table = CIRCLE_ERRORS) {
   if (e instanceof CircleFiError) return e.message;
   const blob = describe(e);
   const code = contractErrorCode(e);
-  if (code && CIRCLE_ERRORS[code]) return CIRCLE_ERRORS[code];
+  if (code && table[code]) return table[code];
   if (/insufficient balance|balance is not sufficient/i.test(blob))
     return 'Not enough of that token in the wallet for this.';
   if (/trustline|not authorized/i.test(blob))
@@ -74,8 +87,8 @@ export function explain(e) {
 }
 
 /** A CircleFiError carrying both the sentence and the contract's error code. */
-function failure(e) {
-  return new CircleFiError(explain(e), contractErrorCode(e));
+function failure(e, table) {
+  return new CircleFiError(explain(e, table), contractErrorCode(e));
 }
 
 export const addr = (a) => new Address(a).toScVal();
@@ -96,6 +109,11 @@ export class CircleFi {
     this._tokenMeta = new Map();
   }
 
+  /** Which error table applies to a contract: the factory's, or a circle's. */
+  _errors(contractId) {
+    return contractId === this.factoryId ? FACTORY_ERRORS : CIRCLE_ERRORS;
+  }
+
   /** Simulate a call and return its value. Costs nothing and needs no account. */
   async read(contractId, method, args = []) {
     const source = new Account(NULL_ACCOUNT, '0');
@@ -106,7 +124,7 @@ export class CircleFi {
       .setTimeout(30)
       .build();
     const sim = await this.server.simulateTransaction(tx);
-    if (rpc.Api.isSimulationError(sim)) throw failure({ message: sim.error });
+    if (rpc.Api.isSimulationError(sim)) throw failure({ message: sim.error }, this._errors(contractId));
     const retval = sim.result?.retval;
     return retval ? scValToNative(retval) : undefined;
   }
@@ -119,7 +137,7 @@ export class CircleFi {
   async invoke(contractId, method, args, signer) {
     if (!signer?.address) throw new CircleFiError('No signer: pass { address, signTransaction }.');
     const account = await this.server.getAccount(signer.address).catch((e) => {
-      throw failure(e);
+      throw failure(e, this._errors(contractId));
     });
     const built = new TransactionBuilder(account, {
       fee: BASE_FEE, networkPassphrase: this.networkPassphrase,
@@ -134,7 +152,7 @@ export class CircleFi {
     try {
       prepared = await this.server.prepareTransaction(built);
     } catch (e) {
-      throw failure(e);
+      throw failure(e, this._errors(contractId));
     }
     const res = await signer.signTransaction(prepared.toXDR(), {
       networkPassphrase: this.networkPassphrase, address: signer.address,
@@ -145,12 +163,12 @@ export class CircleFi {
     const sent = await this.server.sendTransaction(
       TransactionBuilder.fromXDR(xdr, this.networkPassphrase),
     );
-    if (sent.status === 'ERROR') throw failure(sent.errorResult ?? sent);
+    if (sent.status === 'ERROR') throw failure(sent.errorResult ?? sent, this._errors(contractId));
 
     const done = await this.server.pollTransaction(sent.hash, {
       attempts: 30, sleepStrategy: rpc.LinearSleepStrategy,
     });
-    if (done.status !== 'SUCCESS') throw failure(done.resultXdr ?? done.status);
+    if (done.status !== 'SUCCESS') throw failure(done.resultXdr ?? done.status, this._errors(contractId));
     return { hash: sent.hash, value: done.returnValue ? scValToNative(done.returnValue) : undefined };
   }
 
@@ -159,9 +177,30 @@ export class CircleFi {
   /** How many circles the factory has opened. */
   count() { return this.read(this.factoryId, 'count'); }
 
-  /** One page of circles, newest first. */
+  /** One page of circles, newest first. At most MAX_PAGE (50) per call. */
   list(offset = 0, limit = 20) {
+    if (!Number.isInteger(offset) || offset < 0) {
+      return Promise.reject(new CircleFiError('offset must be a whole number, 0 or more'));
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_PAGE) {
+      return Promise.reject(new CircleFiError(`limit must be between 1 and ${MAX_PAGE}`, 3));
+    }
     return this.read(this.factoryId, 'list', [u32(offset), u32(limit)]);
+  }
+
+  /**
+   * Every circle the factory has opened, newest first, fetched a page at a
+   * time. Pass `max` to stop early on a large index.
+   */
+  async listAll({ max = Infinity } = {}) {
+    const total = Math.min(Number(await this.count()), max);
+    const out = [];
+    while (out.length < total) {
+      const page = await this.list(out.length, Math.min(MAX_PAGE, total - out.length));
+      if (!page.length) break;
+      out.push(...page);
+    }
+    return out;
   }
 
   /** Open a circle. Resolves to the new circle's contract address. */
