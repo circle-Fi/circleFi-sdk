@@ -25,8 +25,9 @@ declare module '@circlefi/sdk' {
     capacity: number;
   }
 
+  /** What a circle's get_config returns. */
   export interface Config {
-    creator: string;
+    admin: string;
     token: string;
     contribution: bigint;
     round_seconds: bigint;
@@ -47,8 +48,15 @@ declare module '@circlefi/sdk' {
     delinquent: boolean;
   }
 
-  export interface Listing extends Config {
+  /** One entry from the factory's list(). */
+  export interface Listing {
     address: string;
+    creator: string;
+    token: string;
+    contribution: bigint;
+    round_seconds: bigint;
+    capacity: number;
+    created_at: bigint;
   }
 
   export interface Snapshot {
@@ -76,6 +84,12 @@ declare module '@circlefi/sdk' {
   /** Turn whatever the network threw into a sentence worth showing a person. */
   export function explain(e: unknown): string;
 
+  /** ScVal encoders for building raw calls with read() and invoke(). */
+  export function addr(address: string): unknown;
+  export function u32(n: number | string): unknown;
+  export function u64(n: bigint | number | string): unknown;
+  export function i128(n: bigint | number | string): unknown;
+
   export class CircleFi {
     constructor(network?: Partial<Network>);
     readonly rpcUrl: string;
@@ -85,13 +99,13 @@ declare module '@circlefi/sdk' {
     read(contractId: string, method: string, args?: unknown[]): Promise<any>;
     invoke(contractId: string, method: string, args: unknown[], signer: Signer): Promise<Sent>;
 
-    count(): Promise<bigint>;
+    count(): Promise<number>;
     list(offset?: number, limit?: number): Promise<Listing[]>;
     create(signer: Signer, terms: Terms): Promise<string>;
 
     config(id: string): Promise<Config>;
     state(id: string): Promise<State>;
-    member(id: string, who: string): Promise<MemberRecord>;
+    member(id: string, who: string): Promise<MemberRecord | null>;
     hasContributed(id: string, round: number, who: string): Promise<boolean>;
     snapshot(id: string): Promise<Snapshot>;
 
@@ -105,7 +119,7 @@ declare module '@circlefi/sdk' {
       id: string;
       config(): Promise<Config>;
       state(): Promise<State>;
-      member(who: string): Promise<MemberRecord>;
+      member(who: string): Promise<MemberRecord | null>;
       hasContributed(round: number, who: string): Promise<boolean>;
       snapshot(): Promise<Snapshot>;
       join(signer: Signer): Promise<Sent>;
@@ -124,6 +138,7 @@ declare module '@circlefi/sdk' {
   export function duration(seconds: bigint | number): string;
   export function remaining(endsAt: bigint | number): string;
   export function short(address: string): string;
+  export const STATUS: readonly ['forming', 'active', 'complete'];
   export function statusOf(raw: number | bigint): 'forming' | 'active' | 'complete';
 
   export default CircleFi;
