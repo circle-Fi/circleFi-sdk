@@ -27,8 +27,9 @@ export function duration(seconds) {
   return `${s}s`;
 }
 
-export function remaining(endsAt) {
-  const left = Number(endsAt) - Math.floor(Date.now() / 1000);
+/** Time left before a round closes. `now` is unix seconds, for tests. */
+export function remaining(endsAt, now = Math.floor(Date.now() / 1000)) {
+  const left = Number(endsAt) - now;
   if (left <= 0) return 'the window has closed';
   if (left < 3600) return `${Math.ceil(left / 60)} min left`;
   if (left < 86400) return `${Math.floor(left / 3600)} h left`;

@@ -155,7 +155,7 @@ declare module '@circlefi/sdk' {
   export function amount(units: bigint | string | number, decimals: number, symbol: string): string;
   export function toUnits(text: string, decimals: number): bigint | null;
   export function duration(seconds: bigint | number): string;
-  export function remaining(endsAt: bigint | number): string;
+  export function remaining(endsAt: bigint | number, now?: number): string;
   export function short(address: string): string;
   export interface Step {
     action: 'join' | 'wait' | 'contribute' | 'top_up' | 'settle' | 'withdraw' | 'none';

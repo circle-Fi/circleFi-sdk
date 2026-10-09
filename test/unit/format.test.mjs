@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { amount, duration, short, statusOf, toUnits } from '../../src/format.js';
+import { amount, duration, remaining, short, statusOf, toUnits } from '../../src/format.js';
 
 test('amount() prints integer token units without float drift', () => {
   assert.equal(amount(10_000_000n, 7, 'XLM'), '1 XLM');
@@ -41,6 +41,15 @@ test('duration() picks the largest whole unit', () => {
   assert.equal(duration(7200), '2 hours');
   assert.equal(duration(300), '5 min');
   assert.equal(duration(90), '90s');
+});
+
+test('remaining() counts down to the end of a round', () => {
+  const now = 1_000_000;
+  assert.equal(remaining(now, now), 'the window has closed');
+  assert.equal(remaining(now - 5, now), 'the window has closed');
+  assert.equal(remaining(now + 61, now), '2 min left');
+  assert.equal(remaining(now + 3 * 3600 + 5, now), '3 h left');
+  assert.equal(remaining(BigInt(now + 2 * 86400 + 1), now), '2 d left');
 });
 
 test('short() abbreviates addresses', () => {
