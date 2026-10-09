@@ -118,7 +118,9 @@ export class CircleFi {
    */
   async invoke(contractId, method, args, signer) {
     if (!signer?.address) throw new CircleFiError('No signer: pass { address, signTransaction }.');
-    const account = await this.server.getAccount(signer.address);
+    const account = await this.server.getAccount(signer.address).catch((e) => {
+      throw failure(e);
+    });
     const built = new TransactionBuilder(account, {
       fee: BASE_FEE, networkPassphrase: this.networkPassphrase,
     })
@@ -128,7 +130,12 @@ export class CircleFi {
 
     // Simulate before prompting, so a call that would fail does so before the
     // wallet asks and before a fee is spent.
-    const prepared = await this.server.prepareTransaction(built);
+    let prepared;
+    try {
+      prepared = await this.server.prepareTransaction(built);
+    } catch (e) {
+      throw failure(e);
+    }
     const res = await signer.signTransaction(prepared.toXDR(), {
       networkPassphrase: this.networkPassphrase, address: signer.address,
     });
