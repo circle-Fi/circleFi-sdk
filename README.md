@@ -67,15 +67,60 @@ member misses a round that deposit covers it - so whoever's turn it is still get
 paid in full. When a deposit is exhausted the pot comes up short, and the contract
 records the shortfall rather than hiding it.
 
+## What should I do next?
+
+`nextStep(snapshot, address)` works out the one action that makes sense for a
+person right now, with a sentence saying why - so a UI can show one button, and a
+keeper bot can tell when a round is ready to settle:
+
+```js
+import { nextStep } from '@circlefi/sdk';
+
+const snap = await cf.snapshot(id);
+const { action, reason } = nextStep(snap, address);
+// action: 'join' | 'wait' | 'contribute' | 'top_up' | 'settle' | 'withdraw' | 'none'
+```
+
+`recipientOf(id, round)` says whose turn a round is; the payout order is public
+before anyone commits money.
+
+## Listing circles
+
+`list(offset, limit)` returns one page, newest first; the factory caps a page at 50
+(`MAX_PAGE`) and the SDK refuses a larger one before going to the network.
+`listAll({ max })` walks the whole index a page at a time.
+
+## Checking terms before signing
+
+`create()` checks the terms the way the factory will - 3 to 24 members, a positive
+whole contribution and round length, a token contract address - and throws before
+the wallet opens. `checkTerms(terms)` returns the same problems as sentences, for
+showing next to a form's fields:
+
+```js
+checkTerms({ token, contribution: 0n, roundSeconds: 604800, capacity: 2 });
+// ['Circle size must be between 3 and 24.',
+//  'Contribution must be a whole number of token units, more than zero.']
+```
+
 ## Errors
 
-`explain(e)` maps contract error codes and the usual network failures to a sentence
-you can put in front of a person:
+Everything the SDK throws is a `CircleFiError` whose `message` is a sentence you can
+put in front of a person and whose `code` is the contract's error number, when
+there is one - so you can branch without matching text:
 
 ```js
 try { await circle.contribute(signer); }
-catch (e) { alert(explain(e)); }   // "You have already contributed to this round"
+catch (e) {
+  if (e.code === 8) return;          // already paid this round - nothing to do
+  alert(e.message);                  // "Not enough of that token in the wallet for this."
+}
 ```
+
+A call the contract would reject fails during simulation, before the wallet is
+asked to sign and before any fee is spent. `explain(e)` and `contractErrorCode(e)`
+do the same mapping for errors you catch elsewhere; the circle and the factory
+number their errors differently (`CIRCLE_ERRORS`, `FACTORY_ERRORS`).
 
 ## Network
 
@@ -87,9 +132,16 @@ new CircleFi({ rpcUrl, networkPassphrase, factoryId });
 
 ## Tests
 
+`npm test` runs the offline unit tests - formatting, error mapping, the ScVal
+encoders, term checks, paging and `nextStep` - with the RPC server stubbed out, so it
+needs no network. `npm run test:types` compiles the TypeScript declarations under
+`--strict`. CI runs both on every push and pull request.
+
 `npm run test:live` reads the deployed testnet factory and asserts the shape of what
 comes back. It writes nothing, so it is safe to run against a live network - CI runs
 it on every push and once a day.
+
+Node 22.12 or newer is required (`@stellar/stellar-sdk` 17 needs it).
 
 `npm run test:e2e` goes further: it generates throwaway keypairs, funds them from
 friendbot, and drives a whole circle on live testnet - create, three joins, three
