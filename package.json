@@ -7,17 +7,41 @@
   "main": "./src/index.js",
   "types": "./index.d.ts",
   "exports": {
-    ".": { "types": "./index.d.ts", "default": "./src/index.js" }
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./src/index.js"
+    }
   },
-  "files": ["src", "index.d.ts", "README.md"],
-  "repository": { "type": "git", "url": "git+https://github.com/circle-Fi/circleFi-sdk.git" },
-  "keywords": ["stellar", "soroban", "rosca", "savings", "esusu", "tanda"],
+  "files": [
+    "src",
+    "index.d.ts",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/circle-Fi/circleFi-sdk.git"
+  },
+  "keywords": [
+    "stellar",
+    "soroban",
+    "rosca",
+    "savings",
+    "esusu",
+    "tanda"
+  ],
   "scripts": {
     "test": "node --test 'test/unit/*.test.mjs'",
+    "test:types": "tsc --noEmit --strict index.d.ts",
     "test:live": "node test/live.mjs",
     "test:e2e": "node test/e2e.mjs"
   },
+  "engines": {
+    "node": ">=22.12"
+  },
   "dependencies": {
     "@stellar/stellar-sdk": "^17.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
   }
 }
